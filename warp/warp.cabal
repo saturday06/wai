@@ -203,6 +203,63 @@ Benchmark parser
   if os(windows)
       Cpp-Options:   -DWINDOWS
 
+Benchmark io
+    Type:           exitcode-stdio-1.0
+    Main-Is:        IO.hs
+    HS-Source-Dirs: bench .
+    Build-Depends:  base
+                  , auto-update
+                  , blaze-builder
+                  , bytestring
+                  , containers
+                  , criterion >= 1
+                  , hashable
+                  , http-date
+                  , http-types
+                  , streaming-commons
+                  , unix-compat
+
+  if (os(linux) || os(freebsd) || os(darwin)) && flag(allow-sendfilefd)
+    Cpp-Options:   -DSENDFILEFD
+    Build-Depends: unix
+  if os(windows)
+      Cpp-Options:   -DWINDOWS
+
+Benchmark warp
+    Type:           exitcode-stdio-1.0
+    Main-Is:        Warp.hs
+    HS-Source-Dirs: bench .
+    Build-Depends:  base
+                  , array
+                  , async
+                  , auto-update
+                  , blaze-builder
+                  , bytestring
+                  , case-insensitive
+                  , containers
+                  , criterion >= 1
+                  , ghc-prim
+                  , hashable
+                  , http-date
+                  , http-types
+                  , http2
+                  , iproute
+                  , network
+                  , simple-sendfile
+                  , stm
+                  , streaming-commons
+                  , text
+                  , unix-compat
+                  , vault
+                  , wai
+                  , word8
+
+  if (os(linux) || os(freebsd) || os(darwin)) && flag(allow-sendfilefd)
+    Cpp-Options:   -DSENDFILEFD
+    Build-Depends: unix
+  if os(windows)
+      Cpp-Options:   -DWINDOWS
+
 Source-Repository head
   Type:     git
   Location: git://github.com/yesodweb/wai.git
