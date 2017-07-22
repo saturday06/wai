@@ -263,3 +263,44 @@ Benchmark warp
 Source-Repository head
   Type:     git
   Location: git://github.com/yesodweb/wai.git
+
+Executable sample
+  Main-is:       Sample.hs
+  ghc-options:   -rtsopts -threaded
+  Build-depends: base
+               , array
+               , async
+               , auto-update
+               , blaze-builder
+               , bytestring
+               , case-insensitive
+               , conduit
+               , conduit-extra
+               , containers
+               , data-default-class
+               , ghc-prim
+               , hashable
+               , http-client
+               , http-date
+               , http-types
+               , http2
+               , iproute
+               , lifted-base
+               , monad-control
+               , network
+               , simple-sendfile
+               , stm
+               , streaming-commons
+               , text
+               , unix
+               , unix-compat
+               , vault
+               , wai
+               , wai-logger
+               , warp
+               , word8
+  if (os(linux) || os(freebsd) || os(darwin)) && flag(allow-sendfilefd)
+    Cpp-Options:   -DSENDFILEFD
+    Build-Depends: unix
+  if os(windows)
+      Cpp-Options:   -DWINDOWS
