@@ -42,13 +42,11 @@ import Data.Monoid ((<>))
 #else
 import Data.Monoid (mappend, mempty)
 #endif
-import Data.Streaming.Blaze (newBlazeRecv, reuseBufferStrategy)
 import Data.Version (showVersion)
 import Data.Word8 (_cr, _lf)
 import qualified Network.HTTP.Types as H
 import qualified Network.HTTP.Types.Header as H
 import Network.Wai
-import Network.Wai.Handler.Warp.Buffer (toBuilderBuffer)
 import qualified Network.Wai.Handler.Warp.Date as D
 import Network.Wai.Handler.Warp.File
 import Network.Wai.Handler.Warp.Header
@@ -245,26 +243,17 @@ sendRsp conn _ ver s hs (RspBuilder body needsChunked) = do
 
 ----------------------------------------------------------------
 
-sendRsp conn _ ver s hs (RspStream streamingBody needsChunked th) = do
+sendRsp conn _ ver s hs (RspStream streamingBody needsChunked _) = do
     header <- composeHeaderBuilder ver s hs needsChunked
-    (recv, finish) <- newBlazeRecv $ reuseBufferStrategy
-                    $ toBuilderBuffer (connWriteBuffer conn) (connBufferSize conn)
-    let send builder = do
-            popper <- recv builder
-            let loop = do
-                    bs <- popper
-                    unless (S.null bs) $ do
-                        sendFragment conn th bs
-                        loop
-            loop
+    let send builder = toBufIOWith buffer size (connSendAll conn) builder
         sendChunk
             | needsChunked = send . chunkedTransferEncoding
             | otherwise = send
+        buffer = connWriteBuffer conn
+        size = connBufferSize conn
     send header
     streamingBody sendChunk (sendChunk flush)
     when needsChunked $ send chunkedTransferTerminator
-    mbs <- finish
-    maybe (return ()) (sendFragment conn th) mbs
     return (Just s, Nothing) -- fixme: can we tell the actual sent bytes?
 
 ----------------------------------------------------------------
@@ -341,19 +330,6 @@ sendRspFile404 conn ii ver hs0 = sendRsp conn ii ver s hs (RspBuilder body True)
     body = byteString "File not found"
 
 ----------------------------------------------------------------
-----------------------------------------------------------------
-
--- | Use 'connSendAll' to send this data while respecting timeout rules.
-sendFragment :: Connection -> T.Handle -> ByteString -> IO ()
-sendFragment Connection { connSendAll = send } th bs = do
-    T.resume th
-    send bs
-    T.pause th
-    -- We pause timeouts before passing control back to user code. This ensures
-    -- that a timeout will only ever be executed when Warp is in control. We
-    -- also make sure to resume the timeout after the completion of user code
-    -- so that we can kill idle connections.
-
 ----------------------------------------------------------------
 
 infoFromRequest :: Request -> IndexedHeader -> (Bool  -- isPersist
