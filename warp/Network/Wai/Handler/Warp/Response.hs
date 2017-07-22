@@ -42,7 +42,6 @@ import Data.Monoid ((<>))
 #else
 import Data.Monoid (mappend, mempty)
 #endif
-import Data.Streaming.Blaze (newBlazeRecv, reuseBufferStrategy)
 import Data.Version (showVersion)
 import Data.Word8 (_cr, _lf)
 import qualified Network.HTTP.Types as H
@@ -247,24 +246,15 @@ sendRsp conn _ ver s hs (RspBuilder body needsChunked) = do
 
 sendRsp conn _ ver s hs (RspStream streamingBody needsChunked th) = do
     header <- composeHeaderBuilder ver s hs needsChunked
-    (recv, finish) <- newBlazeRecv $ reuseBufferStrategy
-                    $ toBuilderBuffer (connWriteBuffer conn) (connBufferSize conn)
-    let send builder = do
-            popper <- recv builder
-            let loop = do
-                    bs <- popper
-                    unless (S.null bs) $ do
-                        sendFragment conn th bs
-                        loop
-            loop
+    let send builder = toBufIOWith buffer size (connSendAll conn) builder
         sendChunk
             | needsChunked = send . chunkedTransferEncoding
             | otherwise = send
+        buffer = connWriteBuffer conn
+        size = connBufferSize conn
     send header
     streamingBody sendChunk (sendChunk flush)
     when needsChunked $ send chunkedTransferTerminator
-    mbs <- finish
-    maybe (return ()) (sendFragment conn th) mbs
     return (Just s, Nothing) -- fixme: can we tell the actual sent bytes?
 
 ----------------------------------------------------------------
